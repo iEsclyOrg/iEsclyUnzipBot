@@ -1,0 +1,25 @@
+# Telegram MTProto client. Kurigram is a Pyrogram fork with 2 GB upload support.
+#
+# It installs under the `pyrogram` import name, so vanilla `pyrogram` MUST NOT be
+# installed alongside it — whichever was installed last wins and the other's API
+# silently disappears. If imports misbehave, run:
+#     pip uninstall -y pyrogram kurigram && pip install kurigram
+kurigram>=2.2.0
+TgCrypto>=1.2.5
+
+# Faster event loop on Linux (what Railway/Heroku run). Not available on
+# Windows, hence the marker — local dev there just uses the standard loop.
+uvloop>=0.21; platform_system != "Windows"
+
+# Archive backends. zip/tar/gz/bz2/xz come from the standard library.
+# RAR additionally needs the `unrar` binary on PATH.
+rarfile>=4.2
+py7zr>=0.22.0
+
+# Optional upload logging (pulls in pymongo).
+motor>=3.7.0
+
+python-dotenv>=1.0.0
+
+# Healthcheck endpoint for Railway/Heroku.
+aiohttp>=3.9.0
