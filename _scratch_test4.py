@@ -241,4 +241,37 @@ with patch.object(db, "set_setting", _set_setting), \
 db._disabled = True
 print("dump chat resolution OK")
 
+# --- 12. Every admin command in the filter is routed to admin.command ------ #
+async def _cmd_route():
+    calls = []
+
+    async def fake_admin_cmd(client, message):
+        calls.append(message.command[0])
+
+    async def fake_guard(message):
+        return False
+
+    async def fake_reply(client, chat_id, screen, keyboard=None, photo=None):
+        return 1
+
+    async def fake_reply_text(text, **kwargs):
+        return None
+
+    with patch.object(bc.admin, "command", fake_admin_cmd), \
+         patch.object(bc, "_guard_message", fake_guard), \
+         patch.object(bc, "_reply", fake_reply):
+        for cmd in ("admin", "ban", "unban", "setdump", "unsetdump"):
+            msg = SimpleNamespace(
+                from_user=SimpleNamespace(id=1, is_self=False),
+                command=[cmd, "-100123"],
+                outgoing=False,
+                reply_text=fake_reply_text,
+            )
+            await bc.on_command(None, msg)
+    assert calls == ["admin", "ban", "unban", "setdump", "unsetdump"], calls
+
+
+asyncio.run(_cmd_route())
+print("admin command routing OK")
+
 print("ALL ADMIN TESTS PASSED")

@@ -275,7 +275,7 @@ async def on_command(client: Client, message: Message) -> None:
     user_id = message.from_user.id
     command = (message.command[0] if message.command else "").lower()
 
-    if command in ("admin", "ban", "unban"):
+    if command in ("admin", "ban", "unban", "setdump", "unsetdump"):
         await admin.command(client, message)
     elif await _guard_message(message):
         return
