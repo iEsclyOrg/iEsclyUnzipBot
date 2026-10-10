@@ -311,3 +311,111 @@ def error(title: str, detail: str = "") -> tuple[str, str]:
         rich += f"<pre><code>{safe}</code></pre>"
         plain += f"\n<code>{safe}</code>"
     return rich, plain
+
+
+# --------------------------------------------------------------------------- #
+# Admin panel
+# --------------------------------------------------------------------------- #
+
+def admin_panel(
+    stats: Optional[dict],
+    active_sessions: int = 0,
+    temp_bytes: int = 0,
+) -> tuple[str, str]:
+    if stats:
+        rich_body = (
+            "<table bordered=''><tbody>"
+            "<tr><th>Users</th><th>Banned</th><th>Uploads</th></tr>"
+            f"<tr><td>{stats['users']}</td><td>{stats['banned']}</td>"
+            f"<td>{stats['uploads']}</td></tr>"
+            "<tr><th>Sent</th><th>Failed</th><th>Transferred</th></tr>"
+            f"<tr><td>{stats['success']}</td><td>{stats['failed']}</td>"
+            f"<td>{format_size(stats['bytes'])}</td></tr>"
+            "</tbody></table>"
+        )
+        plain_body = (
+            f"Users {stats['users']} · Banned {stats['banned']} · "
+            f"Uploads {stats['uploads']}\n"
+            f"Sent {stats['success']} · Failed {stats['failed']} · "
+            f"{format_size(stats['bytes'])}"
+        )
+    else:
+        rich_body = "<p>⚠️ Database not configured — statistics unavailable.</p>"
+        plain_body = "⚠️ Database not configured — statistics unavailable."
+
+    rich = (
+        "<h4>🛠 Admin panel</h4>"
+        + rich_body
+        + f"<p>Active sessions: <b>{active_sessions}</b> · "
+        f"Temp files: <b>{format_size(temp_bytes)}</b></p>"
+    )
+    plain = (
+        "🛠 <b>Admin panel</b>\n"
+        + plain_body
+        + f"\nActive sessions: {active_sessions} · Temp files: {format_size(temp_bytes)}"
+    )
+    return rich, plain
+
+
+def admin_users(page: int, total_pages: int, total_users: int) -> tuple[str, str]:
+    rich = (
+        "<h4>👥 Users</h4>"
+        f"<p><b>{total_users}</b> tracked · page {page}/{total_pages}</p>"
+        "<blockquote>Tap a user to ban or unban them.</blockquote>"
+    )
+    plain = (
+        "👥 <b>Users</b>\n"
+        f"{total_users} tracked · page {page}/{total_pages}\n\n"
+        "Tap a user to ban or unban them."
+    )
+    return rich, plain
+
+
+def admin_logs(logs: list[dict]) -> tuple[str, str]:
+    if not logs:
+        return (
+            "<h4>📜 Recent uploads</h4><p>No uploads logged yet.</p>",
+            "📜 <b>Recent uploads</b>\nNo uploads logged yet.",
+        )
+    rich = ["<h4>📜 Recent uploads</h4><ul>"]
+    plain = ["📜 <b>Recent uploads</b>"]
+    for log in logs:
+        mark = "✅" if log.get("status") == "success" else "❌"
+        name = escape(str(log.get("file", "?")))
+        rich.append(f"<li>{mark} <code>{name}</code></li>")
+        plain.append(f"{mark} {log.get('file', '?')}")
+    rich.append("</ul>")
+    return "".join(rich), "\n".join(plain)
+
+
+def admin_broadcast_prompt() -> tuple[str, str]:
+    return (
+        "<h4>📢 Broadcast</h4>"
+        "<p>Send the message you want delivered to every user.</p>"
+        "<blockquote>Your next message is sent verbatim (no formatting) to all "
+        "tracked users. Tap Cancel to abort.</blockquote>",
+        "📢 <b>Broadcast</b>\n\nSend the message to deliver to every user.\n"
+        "Your next message is sent verbatim. Tap Cancel to abort.",
+    )
+
+
+def admin_broadcast_progress(done: int, total: int, sent: int, failed: int) -> tuple[str, str]:
+    return (
+        f"<h4>📢 Broadcasting…</h4><p>{done}/{total}</p>"
+        f"<p>✅ {sent} · ❌ {failed}</p>",
+        f"📢 Broadcasting… {done}/{total}\n✅ {sent} · ❌ {failed}",
+    )
+
+
+def admin_broadcast_done(total: int, sent: int, failed: int) -> tuple[str, str]:
+    return (
+        f"<h4>✅ Broadcast finished</h4><p>{sent}/{total} sent · {failed} failed</p>",
+        f"✅ <b>Broadcast finished</b>\n{sent}/{total} sent · {failed} failed",
+    )
+
+
+def admin_denied() -> tuple[str, str]:
+    return (
+        "<h4>⛔ Admins only</h4>",
+        "⛔ <b>Admins only</b>",
+    )

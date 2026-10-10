@@ -25,8 +25,8 @@ from config import (
     TRANSFER_CONCURRENCY,
     WORKERS,
 )
-from core import rich, session as sessions
-from core.db import log_upload
+from core import admin, rich, session as sessions
+from core.db import is_banned, log_upload, track_user
 from core.extractor import (
     ArchiveError,
     BackendMissing,
@@ -83,7 +83,7 @@ def create_bot_client() -> Client:
     # Registration order is significant: within a handler group Pyrogram runs the
     # first matching handler only, so commands must be checked before the
     # catch-all text handler.
-    bot.on_message(filters.private & filters.command(["start", "help", "cancel"]))(on_command)
+    bot.on_message(filters.private & filters.command(["start", "help", "cancel", "admin", "ban", "unban"]))(on_command)
     bot.on_message(filters.private & filters.document)(on_document)
     bot.on_message(filters.private & filters.text)(on_text)
     bot.on_callback_query()(on_callback)
@@ -221,11 +221,38 @@ async def _fail(client: Client, session: Session, title: str, detail: str = "") 
 # Handlers
 # --------------------------------------------------------------------------- #
 
+async def _guard_message(message: Message) -> bool:
+    """Track the sender and block banned users. True means stop processing."""
+    user = message.from_user
+    if user is None:
+        return True
+    await track_user(user.id, user.username, user.first_name)
+    if await is_banned(user.id):
+        await message.reply_text("🚫 You are banned from using this bot.")
+        return True
+    return False
+
+
+async def _guard_callback(callback: CallbackQuery) -> bool:
+    user = callback.from_user
+    if user is None:
+        return True
+    await track_user(user.id, user.username, user.first_name)
+    if await is_banned(user.id):
+        await callback.answer("🚫 You are banned.", show_alert=True)
+        return True
+    return False
+
+
 async def on_command(client: Client, message: Message) -> None:
     user_id = message.from_user.id
     command = (message.command[0] if message.command else "").lower()
 
-    if command == "cancel":
+    if command in ("admin", "ban", "unban"):
+        await admin.command(client, message)
+    elif await _guard_message(message):
+        return
+    elif command == "cancel":
         if sessions.get(user_id):
             forget_pacing(user_id)
             sessions.end(user_id)
@@ -245,6 +272,9 @@ async def on_command(client: Client, message: Message) -> None:
 async def on_document(client: Client, message: Message) -> None:
     user_id = message.from_user.id
     document = message.document
+
+    if await _guard_message(message):
+        return
 
     existing = sessions.get(user_id)
     if existing and existing.busy:
@@ -448,6 +478,12 @@ async def _on_volumes_done(
 async def on_text(client: Client, message: Message) -> None:
     """A plain message is the password when we're waiting for one."""
     user_id = message.from_user.id
+
+    if await admin.handle_text(client, message):
+        return
+    if await _guard_message(message):
+        return
+
     session = sessions.get(user_id)
 
     if not session or session.state != "WAIT_PASSWORD_REPLY":
@@ -467,8 +503,15 @@ async def on_text(client: Client, message: Message) -> None:
 async def on_callback(client: Client, callback: CallbackQuery) -> None:
     action, value = parse_callback(callback.data or "")
 
+    if action == "adm":
+        await admin.callback(client, callback, value)
+        return
+
     if action == "noop":
         await callback.answer()
+        return
+
+    if await _guard_callback(callback):
         return
 
     session = sessions.get(callback.from_user.id)

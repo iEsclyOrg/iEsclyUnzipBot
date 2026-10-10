@@ -69,6 +69,11 @@ def end(user_id: int) -> None:
     cleanup_user(user_id)
 
 
+def count() -> int:
+    """Number of live sessions, for the admin panel."""
+    return len(_sessions)
+
+
 def sweep_expired() -> int:
     """Drop sessions idle for longer than SESSION_TTL, freeing their temp files."""
     cutoff = time.monotonic() - SESSION_TTL

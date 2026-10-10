@@ -21,6 +21,24 @@ API_HASH = os.getenv("API_HASH", "")
 MONGO_URI = os.getenv("MONGO_URI", "")
 DB_NAME = os.getenv("DB_NAME", "unzip_bot")
 
+
+def _get_id_list(key: str) -> frozenset[int]:
+    """Parse a comma/semicolon separated list of Telegram user IDs."""
+    ids: set[int] = set()
+    for part in os.getenv(key, "").replace(";", ",").split(","):
+        part = part.strip()
+        if part.lstrip("-").isdigit():
+            ids.add(int(part))
+    return frozenset(ids)
+
+
+# Telegram user IDs allowed to open the admin panel. Set via ADMIN_IDS=1,2,3.
+ADMIN_IDS = _get_id_list("ADMIN_IDS")
+
+
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS
+
 # Telegram's MTProto limit for bots is 2000 MiB, not 2 GiB. Anything above
 # 2097152000 bytes is rejected by the server, so files are split at that mark.
 MAX_FILE_SIZE = _get_int("MAX_FILE_SIZE", 2000 * 1024 * 1024)

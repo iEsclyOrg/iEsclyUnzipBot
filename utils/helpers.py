@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 from pathlib import Path
@@ -36,3 +37,17 @@ def format_size(size: float) -> str:
             return f"{size:.1f} {unit}"
         size /= 1024
     return f"{size:.1f} PB"
+
+
+def dir_size(path: Path) -> int:
+    """Total size of the files under `path`, in bytes. Missing paths count as 0."""
+    if not path.exists():
+        return 0
+    total = 0
+    for root, _, names in os.walk(path):
+        for name in names:
+            try:
+                total += (Path(root) / name).stat().st_size
+            except OSError:
+                pass
+    return total

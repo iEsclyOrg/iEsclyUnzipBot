@@ -94,3 +94,52 @@ def file_list_keyboard(
     ])
     rows.append([("❌ Cancel", make_callback("act", "cancel"))])
     return rows
+
+
+# --------------------------------------------------------------------------- #
+# Admin panel
+# --------------------------------------------------------------------------- #
+
+USERS_PER_PAGE = 8
+
+
+def admin_menu() -> Keyboard:
+    return [
+        [("🔄 Refresh", make_callback("adm", "menu"))],
+        [
+            ("👥 Users", make_callback("adm", "users:0")),
+            ("📜 Logs", make_callback("adm", "logs")),
+        ],
+        [("📢 Broadcast", make_callback("adm", "broadcast"))],
+    ]
+
+
+def admin_back_menu() -> Keyboard:
+    return [[("⬅️ Back", make_callback("adm", "menu"))]]
+
+
+def admin_users_keyboard(users: list[dict], page: int, total_pages: int) -> Keyboard:
+    rows: Keyboard = []
+    for user in users:
+        uid = user["_id"]
+        name = user.get("first_name") or user.get("username") or str(uid)
+        if user.get("banned"):
+            label = f"🚫 {name}"
+        else:
+            label = f"✅ {name}"
+        rows.append([(label[:64], make_callback("adm", f"toggle:{uid}:{page}"))])
+
+    nav: Row = []
+    if page > 0:
+        nav.append(("⬅️ Prev", make_callback("adm", f"users:{page - 1}")))
+    nav.append((f"{page + 1}/{total_pages}", NOOP))
+    if page < total_pages - 1:
+        nav.append(("Next ➡️", make_callback("adm", f"users:{page + 1}")))
+    rows.append(nav)
+
+    rows.append([("⬅️ Back", make_callback("adm", "menu"))])
+    return rows
+
+
+def admin_broadcast_cancel() -> Keyboard:
+    return [[("❌ Cancel", make_callback("adm", "bcancel"))]]
