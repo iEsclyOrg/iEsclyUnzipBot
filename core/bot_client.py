@@ -20,6 +20,7 @@ from config import (
     MAX_TOTAL_EXTRACTED,
     PAGE_SIZE,
     PROGRESS_MIN_SIZE,
+    SESSION_DIR,
     SLEEP_THRESHOLD,
     STATUS_EDIT_INTERVAL,
     TRANSFER_CONCURRENCY,
@@ -69,8 +70,16 @@ Screen = tuple[str, str]
 def create_bot_client() -> Client:
     """Build the client. Called from inside the running loop to bind it correctly."""
     global bot
+    # Keep the login on a persisted path when one is provided; a fresh session
+    # file every restart means re-running bot authorization, which Telegram
+    # rate-limits hard once redeploys overlap.
+    session_name = "unzip_bot"
+    if SESSION_DIR:
+        session_path = Path(SESSION_DIR)
+        session_path.mkdir(parents=True, exist_ok=True)
+        session_name = str(session_path / "unzip_bot")
     bot = Client(
-        "unzip_bot",
+        session_name,
         api_id=API_ID,
         api_hash=API_HASH,
         bot_token=BOT_TOKEN,

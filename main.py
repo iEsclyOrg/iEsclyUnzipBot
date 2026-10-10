@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 
+from pyrogram.errors import FloodWait
+
 from config import ADMIN_IDS, API_HASH, API_ID, BOT_TOKEN, ensure_dirs
 from core import bot_client, rich, session as sessions
 from core.db import close_db
@@ -24,6 +26,34 @@ async def _sweep_sessions() -> None:
             logger.info("Cleared %d idle session(s)", dropped)
 
 
+async def _start_with_backoff(client, max_wait: int = 3600) -> None:
+    """Log the bot in, riding out Telegram's login flood-waits.
+
+    A crash here makes Railway restart the container, which re-runs
+    ImportBotAuthorization and pushes the flood-wait even higher — a loop that
+    never lets the flood drain. Sleeping the wait out inside the process keeps
+    the container alive so Telegram's timer actually expires.
+    """
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            await client.start()
+            return
+        except FloodWait as exc:
+            wait = int(getattr(exc, "value", 0) or 0) + 5
+            if wait > max_wait:
+                raise
+            logger.warning(
+                "Login flood-wait: sleeping %ss before retry (attempt %d)", wait, attempt
+            )
+            try:
+                await client.stop()
+            except Exception:  # noqa: BLE001 - not started yet is expected
+                pass
+            await asyncio.sleep(wait)
+
+
 async def main() -> None:
     missing = [
         name for name, value in
@@ -40,7 +70,7 @@ async def main() -> None:
     started = False
 
     try:
-        await client.start()
+        await _start_with_backoff(client)
         started = True
         me = await client.get_me()
         logger.info("Running as @%s", me.username)

@@ -111,6 +111,11 @@ TEMP_ROOT = Path(os.getenv("TEMP_ROOT", "./temp"))
 ARCHIVE_DIR = TEMP_ROOT / "archives"
 EXTRACTED_DIR = TEMP_ROOT / "extracted"
 
+# Where the Pyrogram session file lives. Point this at a mounted volume so the
+# login survives redeploys — otherwise every restart re-runs the bot
+# authorization and can trigger Telegram's login flood-wait.
+SESSION_DIR = os.getenv("SESSION_DIR", "")
+
 PAGE_SIZE = 10
 
 # Longest extensions first: detection walks this list in order so that
