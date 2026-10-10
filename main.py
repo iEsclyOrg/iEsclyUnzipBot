@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 
-from config import API_HASH, API_ID, BOT_TOKEN, ensure_dirs
+from config import ADMIN_IDS, API_HASH, API_ID, BOT_TOKEN, ensure_dirs
 from core import bot_client, rich, session as sessions
 from core.db import close_db
 from health_server import start_health_server, stop_health_server
@@ -44,6 +44,7 @@ async def main() -> None:
         started = True
         me = await client.get_me()
         logger.info("Running as @%s", me.username)
+        logger.info("Admin IDs configured: %s", sorted(ADMIN_IDS) or "none")
         await asyncio.Event().wait()
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("Shutting down")
