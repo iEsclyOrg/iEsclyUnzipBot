@@ -383,7 +383,7 @@ def admin_logs(logs: list[dict]) -> tuple[str, str]:
         mark = "✅" if log.get("status") == "success" else "❌"
         name = escape(str(log.get("file", "?")))
         rich.append(f"<li>{mark} <code>{name}</code></li>")
-        plain.append(f"{mark} {log.get('file', '?')}")
+        plain.append(f"{mark} {name}")
     rich.append("</ul>")
     return "".join(rich), "\n".join(plain)
 

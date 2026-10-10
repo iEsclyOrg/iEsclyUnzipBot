@@ -222,7 +222,7 @@ async def _set_ban(client: Client, message: Message, banned: bool) -> None:
     user_id = message.from_user.id
     args = message.command[1:] if message.command else []
     if not args or not args[0].lstrip("-").isdigit():
-        usage = f"/{'ban' if banned else 'unban'} &lt;user_id&gt;"
+        usage = f"/{'ban' if banned else 'unban'} <user_id>"
         await _send(client, user_id, views.error("Usage", usage))
         return
     target = int(args[0])
@@ -267,7 +267,7 @@ async def _set_dump_chat(client: Client, message: Message, clear: bool) -> None:
     if not raw.lstrip("-").isdigit():
         await _send(
             client, user_id,
-            views.error("Usage", "/setdump &lt;chat_id&gt;  ·  /unsetdump"),
+            views.error("Usage", "/setdump <chat_id>  ·  /unsetdump"),
         )
         return
     chat_id = int(raw)
@@ -310,7 +310,7 @@ async def _run_broadcast(client: Client, admin_id: int, body: str) -> None:
             await client.send_message(uid, body)  # no parse_mode: body is literal
             sent += 1
         except FloodWait as exc:
-            wait = getattr(exc, "value", 0)
+            wait = int(getattr(exc, "value", 0) or 0)
             if wait > BROADCAST_MAX_FLOOD:
                 failed += 1
             else:

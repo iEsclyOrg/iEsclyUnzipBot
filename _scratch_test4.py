@@ -47,7 +47,7 @@ rich, plain = views.admin_logs([
     {"file": "a<b>.txt", "status": "success"},
     {"file": "b.zip", "status": "failed"},
 ])
-assert "&lt;b&gt;" in rich and "a<b>.txt" in plain, rich
+assert "&lt;b&gt;" in rich and "&lt;b&gt;" in plain, (rich, plain)
 assert "✅" in plain and "❌" in plain, plain
 rich, plain = views.admin_logs([])
 assert "No uploads" in plain, plain

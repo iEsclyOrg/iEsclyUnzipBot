@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# Pyrogram login session (grants full bot access — never commit)
+*.session
+*.session-journal
+
 # Python
 __pycache__/
 *.py[cod]
