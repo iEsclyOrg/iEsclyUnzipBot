@@ -23,7 +23,7 @@ Telegram bot to extract **zip, rar, 7z, tar, gz, bz2, xz** archives and send the
    ```
 3. Make sure **MongoDB** is running.
 4. Make sure **ffmpeg** and **ffprobe** are installed and in PATH.
-5. For RAR support, install `unrar` / WinRAR tools.
+5. For RAR support, install an external extractor (`bsdtar` from libarchive-tools, `unar`, or `unrar`).
 6. Run the bot:
    ```bash
    python main.py
@@ -90,7 +90,7 @@ DB_NAME=unzip_bot
 
 ### Important Heroku Notes
 
-- Heroku uses **container stack** because we need `ffmpeg`, `unrar`, and `p7zip`. Pure Python buildpack won't work.
+- Heroku uses **container stack** because we need `ffmpeg`, `libarchive-tools`, and `p7zip`. Pure Python buildpack won't work.
 - The bot runs as a **worker** dyno, but the `health_server.py` keeps a lightweight `/health` endpoint alive on `PORT` so Heroku doesn't kill the container.
 - Free dynos sleep after inactivity, but Telegram bots should run 24/7. Use at least a **Basic** ($7/month) worker dyno for production.
 

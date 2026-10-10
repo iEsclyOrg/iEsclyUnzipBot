@@ -12,7 +12,7 @@ TgCrypto>=1.2.5
 uvloop>=0.21; platform_system != "Windows"
 
 # Archive backends. zip/tar/gz/bz2/xz come from the standard library.
-# RAR additionally needs the `unrar` binary on PATH.
+# RAR additionally needs an external extractor on PATH (bsdtar, unar, unrar or 7z).
 rarfile>=4.2
 py7zr>=0.22.0
 
