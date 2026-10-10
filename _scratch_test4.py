@@ -198,4 +198,15 @@ async def _handle_run():
 asyncio.run(_handle_run())
 print("broadcast arming OK")
 
+# --- 10. The bot must ignore its own outgoing messages --------------------- #
+from core.bot_client import _from_self
+
+assert _from_self(SimpleNamespace(outgoing=True, from_user=None)) is True
+assert _from_self(SimpleNamespace(outgoing=False,
+                                  from_user=SimpleNamespace(id=5, is_self=True))) is True
+assert _from_self(SimpleNamespace(outgoing=False,
+                                  from_user=SimpleNamespace(id=5, is_self=False))) is False
+assert _from_self(SimpleNamespace(outgoing=False, from_user=None)) is False
+print("self-message guard OK")
+
 print("ALL ADMIN TESTS PASSED")

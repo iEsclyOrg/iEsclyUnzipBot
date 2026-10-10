@@ -221,8 +221,24 @@ async def _fail(client: Client, session: Session, title: str, detail: str = "") 
 # Handlers
 # --------------------------------------------------------------------------- #
 
+def _from_self(message: Message) -> bool:
+    """True when an update is the bot's own outgoing message.
+
+    Telegram does not normally echo a bot's messages back to it, but a
+    duplicated/shared session or a business connection can. Without this guard
+    the bot answers its own reply, which arrives as another text update, and
+    loops forever.
+    """
+    if getattr(message, "outgoing", False):
+        return True
+    user = message.from_user
+    return bool(user is not None and getattr(user, "is_self", False))
+
+
 async def _guard_message(message: Message) -> bool:
     """Track the sender and block banned users. True means stop processing."""
+    if _from_self(message):
+        return True
     user = message.from_user
     if user is None:
         return True
@@ -245,6 +261,8 @@ async def _guard_callback(callback: CallbackQuery) -> bool:
 
 
 async def on_command(client: Client, message: Message) -> None:
+    if _from_self(message):
+        return
     user_id = message.from_user.id
     command = (message.command[0] if message.command else "").lower()
 
@@ -477,6 +495,8 @@ async def _on_volumes_done(
 
 async def on_text(client: Client, message: Message) -> None:
     """A plain message is the password when we're waiting for one."""
+    if _from_self(message):
+        return
     user_id = message.from_user.id
 
     if await admin.handle_text(client, message):
