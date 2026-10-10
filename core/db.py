@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from config import DB_NAME, MONGO_URI
+from config import DB_NAME, DUMP_CHAT_ID, MONGO_URI
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +171,46 @@ async def recent_logs(limit: int = 10) -> list[dict]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("recent_logs failed: %s", exc)
         return []
+
+
+# --------------------------------------------------------------------------- #
+# Settings (key/value) — used for the dump chat target
+# --------------------------------------------------------------------------- #
+
+async def set_setting(key: str, value) -> bool:
+    if _disabled:
+        return False
+    try:
+        await _get_db().settings.update_one(
+            {"_id": key}, {"$set": {"value": value}}, upsert=True
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("set_setting(%s) failed: %s", key, exc)
+        return False
+
+
+async def get_setting(key: str, default=None):
+    if _disabled:
+        return default
+    try:
+        doc = await _get_db().settings.find_one({"_id": key})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("get_setting(%s) failed: %s", key, exc)
+        return default
+    return doc.get("value") if doc else default
+
+
+async def get_dump_chat() -> Optional[int]:
+    """Chat id extracted files are delivered to, or None for 'send to the user'."""
+    value = await get_setting("dump_chat")
+    if value:
+        return int(value)
+    return DUMP_CHAT_ID or None
+
+
+async def set_dump_chat(chat_id: Optional[int]) -> bool:
+    return await set_setting("dump_chat", chat_id)
 
 
 async def close_db() -> None:

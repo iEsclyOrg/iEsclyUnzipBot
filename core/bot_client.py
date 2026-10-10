@@ -26,7 +26,7 @@ from config import (
     WORKERS,
 )
 from core import admin, rich, session as sessions
-from core.db import is_banned, log_upload, track_user
+from core.db import get_dump_chat, is_banned, log_upload, track_user
 from core.extractor import (
     ArchiveError,
     BackendMissing,
@@ -83,7 +83,7 @@ def create_bot_client() -> Client:
     # Registration order is significant: within a handler group Pyrogram runs the
     # first matching handler only, so commands must be checked before the
     # catch-all text handler.
-    bot.on_message(filters.private & filters.command(["start", "help", "cancel", "admin", "ban", "unban"]))(on_command)
+    bot.on_message(filters.private & filters.command(["start", "help", "cancel", "admin", "ban", "unban", "setdump", "unsetdump"]))(on_command)
     bot.on_message(filters.private & filters.document)(on_document)
     bot.on_message(filters.private & filters.text)(on_text)
     bot.on_callback_query()(on_callback)
@@ -766,6 +766,15 @@ async def _extract_and_send(
     rounds = len(chunks)
     out_dir = user_extracted_dir(session.user_id)
 
+    # Files go to the dump chat when one is configured, otherwise back to the user.
+    dump_chat = await get_dump_chat()
+    send_chat = dump_chat or session.user_id
+    if dump_chat:
+        logger.info(
+            "Dumping %d file(s) from user %s to chat %s",
+            total_files, session.user_id, dump_chat,
+        )
+
     sent = 0
     done = 0
     extracted_total = 0
@@ -818,9 +827,11 @@ async def _extract_and_send(
                     client, session, f"📤 Sending {done}/{total_files}", path.name
                 )
 
+            caption = f"<code>{rich.escape(path.name)}</code>"
+            if dump_chat:
+                caption += f"\n👤 <code>{session.user_id}</code>"
             error = await send_file(
-                client, session.user_id, path, caption=f"<code>{rich.escape(path.name)}</code>",
-                progress=reporter,
+                client, send_chat, path, caption=caption, progress=reporter,
             )
             if error:
                 failures.append(f"{path.name}: {error}")
@@ -844,6 +855,7 @@ async def _extract_and_send(
 
     await _set_status(client, session, views.summary(sent, total_files, skipped_all, failures))
     forget_pacing(session.user_id)
+    forget_pacing(send_chat)
     sessions.end(session.user_id)
 
 

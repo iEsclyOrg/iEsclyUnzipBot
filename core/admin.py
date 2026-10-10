@@ -113,6 +113,9 @@ async def command(client: Client, message: Message) -> None:
     if command_name in ("ban", "unban"):
         await _set_ban(client, message, banned=command_name == "ban")
         return
+    if command_name in ("setdump", "unsetdump"):
+        await _set_dump_chat(client, message, clear=command_name == "unsetdump")
+        return
 
     _awaiting_broadcast.discard(user_id)
     message_id = await _send(client, user_id, await _panel_screen(), admin_menu())
@@ -230,6 +233,60 @@ async def _set_ban(client: Client, message: Message, banned: bool) -> None:
     await _send(
         client, user_id,
         (f"<h4>✅ User {verb}</h4>", f"✅ User <code>{target}</code> {verb}."),
+    )
+
+
+async def _set_dump_chat(client: Client, message: Message, clear: bool) -> None:
+    """Point extracted-file delivery at a group/channel, or reset it."""
+    user_id = message.from_user.id
+
+    if clear:
+        if not await db.set_dump_chat(None):
+            await _send(client, user_id, views.error("Could not update", "Database unavailable."))
+            return
+        await _send(
+            client, user_id,
+            ("<h4>✅ Dump chat cleared</h4>",
+             "✅ Dump cleared — extracted files go back to the user."),
+        )
+        return
+
+    args = message.command[1:] if message.command else []
+    if not args:
+        current = await db.get_dump_chat()
+        detail = (
+            f"<code>{current}</code>" if current else "not set — files go to the user."
+        )
+        await _send(
+            client, user_id,
+            ("<h4>📤 Dump chat</h4>", f"📤 Current dump chat: {detail}"),
+        )
+        return
+
+    raw = args[0]
+    if not raw.lstrip("-").isdigit():
+        await _send(
+            client, user_id,
+            views.error("Usage", "/setdump &lt;chat_id&gt;  ·  /unsetdump"),
+        )
+        return
+    chat_id = int(raw)
+    if not await db.set_dump_chat(chat_id):
+        await _send(client, user_id, views.error("Could not update", "Database unavailable."))
+        return
+
+    note = ""
+    try:
+        await client.send_message(chat_id, "✅ This chat is now the UnzipBot dump target.")
+    except Exception as exc:  # noqa: BLE001 - may lack rights, still keep the setting
+        note = (
+            f"\n⚠️ Could not post here yet ({type(exc).__name__}). "
+            "Add the bot as an admin with post rights."
+        )
+    await _send(
+        client, user_id,
+        ("<h4>✅ Dump chat set</h4>",
+         f"✅ Extracted files will now be sent to <code>{chat_id}</code>.{note}"),
     )
 
 

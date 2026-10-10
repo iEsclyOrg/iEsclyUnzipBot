@@ -209,4 +209,36 @@ assert _from_self(SimpleNamespace(outgoing=False,
 assert _from_self(SimpleNamespace(outgoing=False, from_user=None)) is False
 print("self-message guard OK")
 
+# --- 11. Dump chat setting resolves DB value, then env fallback ------------ #
+db._disabled = True
+with patch.object(db, "DUMP_CHAT_ID", 0):
+    assert asyncio.run(db.get_dump_chat()) is None
+with patch.object(db, "DUMP_CHAT_ID", -100999):
+    assert asyncio.run(db.get_dump_chat()) == -100999
+
+# With a DB, a stored value wins over the env default.
+_fake_settings = {}
+
+
+async def _set_setting(key, value):
+    _fake_settings[key] = value
+    return True
+
+
+async def _get_setting(key, default=None):
+    return _fake_settings.get(key, default)
+
+
+with patch.object(db, "set_setting", _set_setting), \
+     patch.object(db, "get_setting", _get_setting), \
+     patch.object(db, "DUMP_CHAT_ID", -100111):
+    db._disabled = False
+    assert asyncio.run(db.get_dump_chat()) == -100111
+    assert asyncio.run(db.set_dump_chat(-100222)) is True
+    assert asyncio.run(db.get_dump_chat()) == -100222
+    asyncio.run(db.set_dump_chat(None))
+    assert asyncio.run(db.get_dump_chat()) == -100111
+db._disabled = True
+print("dump chat resolution OK")
+
 print("ALL ADMIN TESTS PASSED")

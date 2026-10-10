@@ -39,6 +39,12 @@ ADMIN_IDS = _get_id_list("ADMIN_IDS")
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
+
+# Default dump chat (group/channel id, negative for both) where extracted files
+# are delivered. Admins override this at runtime with /setdump; env is the
+# fallback when no database is configured. 0 means "send to the user".
+DUMP_CHAT_ID = _get_int("DUMP_CHAT_ID", 0)
+
 # Telegram's MTProto limit for bots is 2000 MiB, not 2 GiB. Anything above
 # 2097152000 bytes is rejected by the server, so files are split at that mark.
 MAX_FILE_SIZE = _get_int("MAX_FILE_SIZE", 2000 * 1024 * 1024)
