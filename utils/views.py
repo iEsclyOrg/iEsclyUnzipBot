@@ -278,7 +278,13 @@ def file_list(
     return rich, plain
 
 
-def summary(sent: int, total: int, skipped: list[str], failures: list[str]) -> tuple[str, str]:
+def summary(
+    sent: int,
+    total: int,
+    skipped: list[str],
+    failures: list[str],
+    note: str = "",
+) -> tuple[str, str]:
     icon = "✅" if sent == total else "⚠️"
     rich = [f"<h4>{icon} Sent {sent} of {total} file(s)</h4>"]
     plain = [f"{icon} <b>Sent {sent}/{total} file(s)</b>"]
@@ -297,6 +303,10 @@ def summary(sent: int, total: int, skipped: list[str], failures: list[str]) -> t
         plain.extend(f"• {escape(entry)}" for entry in shown)
         if len(entries) > len(shown):
             plain.append(f"• …and {len(entries) - len(shown)} more")
+
+    if note:
+        rich.append(f"<blockquote>{escape(note)}</blockquote>")
+        plain.append(f"\n{escape(note)}")
 
     rich.append("<hr><p>Send another archive whenever you're ready.</p>")
     plain.append("\nSend another archive whenever you're ready.")

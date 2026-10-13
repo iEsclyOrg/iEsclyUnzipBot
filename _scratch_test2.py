@@ -89,4 +89,31 @@ assert len(rich_mod._trim("x" * 40000)) <= rich_mod.MAX_RICH_CHARS
 assert rich_mod._trim("short") == "short"
 print("rich trim OK")
 
+# --- 6. Empty-file diagnostics distinguish archive-empty from data loss ----- #
+import tempfile
+import shutil
+from core.bot_client import _collect_files, _empty_diagnostic
+
+work = Path(tempfile.mkdtemp())
+(work / "full.mp4").write_bytes(b"DATA" * 100)
+(work / "blank.mp4").write_bytes(b"")
+files, skipped, total = _collect_files(work)
+assert [p.name for p in files] == ["full.mp4"], files
+assert skipped and skipped[0][0].name == "blank.mp4" and skipped[0][1] == "empty", skipped
+assert total == 400, total
+
+archive_empty = _empty_diagnostic(3, 0)
+assert "0 bytes inside the archive" in archive_empty, archive_empty
+data_loss = _empty_diagnostic(3, 1234)
+assert "even though the archive lists" in data_loss, data_loss
+assert _empty_diagnostic(0, 0) == ""
+print("empty-file diagnostic OK ->", archive_empty)
+
+# The note must reach both the rich and the plain summary.
+rich_note, plain_note = views.summary(1, 4, ["blank.mp4 (empty)"], [], note=data_loss)
+assert data_loss in plain_note and "please report" in rich_note, (rich_note, plain_note)
+print("summary note rendering OK")
+
+shutil.rmtree(work)
+
 print("ALL FIX TESTS PASSED")

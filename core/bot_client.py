@@ -789,6 +789,12 @@ async def _extract_and_send(
     extracted_total = 0
     failures: list[str] = []
     skipped_all: list[str] = []
+    # Diagnostics: count files that came out empty and how much data the archive
+    # itself claims they hold. Declared zero means the archive has nothing to
+    # give; declared non-zero while the extract is empty is a real bug.
+    declared_by_name = {item["name"]: item["size"] for item in session.items}
+    empty_skipped = 0
+    empty_declared_bytes = 0
 
     for round_no, members in enumerate(chunks, start=1):
         session.state = "EXTRACTING"
@@ -807,7 +813,12 @@ async def _extract_and_send(
             return
 
         files, skipped, round_size = await asyncio.to_thread(_collect_files, out_dir)
-        skipped_all.extend(skipped)
+        for path, problem in skipped:
+            skipped_all.append(f"{path.name} ({problem})")
+            if problem == "empty":
+                empty_skipped += 1
+                rel = path.relative_to(out_dir).as_posix().replace("\\", "/").lstrip("/")
+                empty_declared_bytes += declared_by_name.get(rel, 0)
         extracted_total += round_size
 
         # The declared size was checked up front, but archives can lie — guard
@@ -855,36 +866,67 @@ async def _extract_and_send(
             })
 
     if done == 0 and skipped_all:
-        await _fail(
-            client, session,
-            "Extraction produced no usable files",
-            "; ".join(skipped_all[:5]),
-        )
+        note = _empty_diagnostic(empty_skipped, empty_declared_bytes)
+        detail = "; ".join(skipped_all[:5])
+        if note:
+            detail = f"{note}\n{detail}"
+        await _fail(client, session, "Extraction produced no usable files", detail)
         return
 
-    await _set_status(client, session, views.summary(sent, total_files, skipped_all, failures))
+    note = _empty_diagnostic(empty_skipped, empty_declared_bytes)
+    if note:
+        logger.warning(
+            "Extraction diagnostic for user %s: %d empty file(s), archive-declared "
+            "bytes for them = %d (%s)",
+            session.user_id, empty_skipped, empty_declared_bytes,
+            "archive stores them empty" if not empty_declared_bytes else "DATA LOSS",
+        )
+    await _set_status(
+        client, session,
+        views.summary(sent, total_files, skipped_all, failures, note),
+    )
     forget_pacing(session.user_id)
     forget_pacing(send_chat)
     sessions.end(session.user_id)
 
 
-def _collect_files(out_dir: Path) -> tuple[list[Path], list[str], int]:
+def _collect_files(out_dir: Path) -> tuple[list[Path], list[tuple[Path, str]], int]:
     """Walk the output tree, separating usable files from unusable ones.
 
     A file that fails its check is skipped and named in the summary. It used to
     abort the whole batch and delete every sibling, throwing away good files
-    because of one bad one.
+    because of one bad one. Skipped files keep their path so the caller can tell
+    "empty inside the archive" apart from "empty after extraction".
     """
     files: list[Path] = []
-    skipped: list[str] = []
+    skipped: list[tuple[Path, str]] = []
     total = 0
     for root, _, names in os.walk(out_dir):
         for name in sorted(names):
             path = Path(root) / name
             problem = check_file(path)
             if problem:
-                skipped.append(f"{name} ({problem})")
+                skipped.append((path, problem))
                 continue
             total += path.stat().st_size
             files.append(path)
     return files, skipped, total
+
+
+def _empty_diagnostic(empty_count: int, declared_bytes: int) -> str:
+    """Plain-language reason the empty files were skipped.
+
+    An empty output is only a bug when the archive's own index says the file has
+    data. When it says zero, the archive genuinely has nothing to give.
+    """
+    if not empty_count:
+        return ""
+    if declared_bytes == 0:
+        return (
+            f"The {empty_count} skipped file(s) are stored as 0 bytes inside the "
+            "archive — there is no data to extract."
+        )
+    return (
+        f"{empty_count} file(s) came out empty even though the archive lists "
+        f"{format_size(declared_bytes)} of data for them — please report this."
+    )
